@@ -1,5 +1,6 @@
 import requests
 import datetime
+import time
 import sys
 from requests_html import HTML
 import pandas as pd
@@ -11,6 +12,7 @@ import math
 def get_page_count():
     # Get the total number of pages from the main "Auction History" page:
     main_url = 'https://www.tibia.com/charactertrade/?subtopic=pastcharactertrades'
+    time.sleep(1)
     main_r = requests.get(main_url)
     if main_r.status_code == 200:
         main_html_text = main_r.text
@@ -33,12 +35,14 @@ def scrape_tibia_auctions():
 
     dataframe_columns = ['Name', 'Level', 'Vocation', 'World', 'Sex', 'Bid', 'Type', 'Start', 'End', 'Page']
     auction_dataframe = pd.DataFrame(columns=dataframe_columns)
+    request_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'}
 
     for page_number in range(1, max_page+1):
 
         page_url = root_url + str(page_number)
 
-        page_req = requests.get(page_url)
+        time.sleep(1)
+        page_req = requests.get(page_url, headers=request_headers)
 
         if page_req.status_code == 200:
             page_html_text = page_req.text
@@ -46,6 +50,11 @@ def scrape_tibia_auctions():
 
             page_dataframe = get_page_data(page_html, page_number, dataframe_columns)
             auction_dataframe = auction_dataframe.append(page_dataframe)
+
+        else:
+            error_code = page_req.status_code
+            error_description = requests.status_codes._codes[error_code][0]
+            print(f"\nFailed to access page {page_number} (error code {error_code}: {error_description}).")
 
 
     return auction_dataframe
@@ -122,7 +131,7 @@ if __name__ == "__main__":
     #
     #
     #
-    #
+    # temporary code: results summary output
     #
     #
     #
