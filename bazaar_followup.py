@@ -10,16 +10,19 @@ home_dir = 'D:\\Programming\\Python\\TibiaAuctions'
 followup_filename = 'character_followup.pkl'
 temp_storage = 'cf_temp.pkl'
 scraped_filename = 'last_full_scrape.pkl'
-followup_columns = ('Id', 'Name', 'World', 'Sex', 'Vocation', 'Level', 'AccessDate', 'NewName', 'NewWorld', 'NewSex', 'NewVocation', 'NewLevel', 'LastLogin', 'AccountStatus', 'NewId')
-request_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'}
+followup_columns = (
+'Id', 'Name', 'World', 'Sex', 'Vocation', 'Level', 'AccessDate', 'NewName', 'NewWorld', 'NewSex', 'NewVocation',
+'NewLevel', 'LastLogin', 'AccountStatus', 'NewId')
+request_headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'}
 today = datetime.datetime.now()
 failed_updates = []
 save_step = 1000
-auction_range = False # range(0,90000)
+auction_range = False  # range(0,90000)
 
 
-def update_row(df, row, NewId=None, NewName=None, NewWorld=None, NewSex=None, NewVocation=None, NewLevel=None, LastLogin=None, AccountStatus=None, AccessDate=None, Scheduled=None, Deleted=None):
-
+def update_row(df, row, NewId=None, NewName=None, NewWorld=None, NewSex=None, NewVocation=None, NewLevel=None,
+               LastLogin=None, AccountStatus=None, AccessDate=None, Scheduled=None, Deleted=None):
     update_pairs = [(None, 'NewId', NewId),
                     ('Name', 'NewName', NewName),
                     ('World', 'NewWorld', NewWorld),
@@ -52,12 +55,13 @@ def update_row(df, row, NewId=None, NewName=None, NewWorld=None, NewSex=None, Ne
     return df
 
 
-def new_row(df, new_data, old_data, access):
-    data = list(map(lambda o,n: None if o==n else n, old_data[1:], new_data))
-    char_dict = dict(Id=old_data[0], Name=old_data[1], World=old_data[2], Sex=old_data[3], Vocation=old_data[4],
-                     Level=old_data[5], AccessDate=access, NewName=data[0], NewWorld=data[1], NewSex=data[2],
-                     NewVocation=data[3], NewLevel=data[4], LastLogin=new_data[5], AccountStatus=new_data[6], NewId=None,
-                     Scheduled=new_data[7], Deleted=new_data[8])
+def new_row(df, new, old, access):
+    data = list(map(lambda o, n: None if o == n else n, old[1:], new))
+    char_dict = dict(Id=old[0], Name=old[1], World=old[2], Sex=old[3], Vocation=old[4],
+                     Level=old[5], AccessDate=access, NewName=data[0], NewWorld=data[1], NewSex=data[2],
+                     NewVocation=data[3], NewLevel=data[4], LastLogin=new[5], AccountStatus=new[6],
+                     NewId=None,
+                     Scheduled=new[7], Deleted=new[8])
     char_df = pd.DataFrame(char_dict, index=[0])
     df = df.append(char_df).reset_index(drop=True)
     return df
@@ -75,18 +79,18 @@ def recently_accessed(row, followup_df, day_threshold=10):
         return days_since
 
 
-def resold_check (row, followup_df):
+def resold_check(row, followup_df):
     new_id = followup_df.iloc[row]['NewId']
     deleted = followup_df.iloc[row]['Deleted']
     scheduled = followup_df.iloc[row]['Scheduled']
     return (isinstance(new_id, str) and len(new_id) > 0) or deleted or scheduled
 
 
-def rindex (list, value):
-    return len(list) -1 - list[::-1].index(value) if value in list else None
+def rindex(list, value):
+    return len(list) - 1 - list[::-1].index(value) if value in list else None
 
 
-def findex (list, value):
+def findex(list, value):
     return list.index(value) if value in list else None
 
 
@@ -125,9 +129,10 @@ def get_tibiaring_alias(url_name):
 
 def get_character_info(char_name, headers=None):
     url_root = 'https://www.tibia.com/community/?subtopic=characters&name='
-    default_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'}
+    default_headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'}
 
-    url_name = char_name.replace(' ','+').replace('ö','%F6')
+    url_name = char_name.replace(' ', '+').replace('ö', '%F6')
     char_url = url_root + url_name
     if not headers:
         headers = default_headers
@@ -147,7 +152,7 @@ def get_character_info(char_name, headers=None):
         new_name = get_tibiaring_alias(url_name)
         if not new_name:
             return None
-        new_char_url =  url_root + new_name.replace(' ','+').replace('ö','%F6')
+        new_char_url = url_root + new_name.replace(' ', '+').replace('ö', '%F6')
         req = requests.get(new_char_url, headers=headers)
         if req.status_code != 200:
             print(f'Tibia.com ERROR {req.status_code}: {req.reason}. ')
@@ -224,7 +229,7 @@ def incorporate_auction(auction, followup_df):
         new_data = [None] * 8
         deleted = True
         failed_pair = (old_id, old_name)
-    name, sex, world, vocation, level, login, status, del_date = new_data
+    name, world, sex, vocation, level, login, status, del_date = new_data
 
     # Incorporate auction into DataFrame
     if isinstance(id_match, int):
@@ -255,7 +260,8 @@ def incorporate_auction(auction, followup_df):
                                          AccessDate=access_time, Deleted=deleted)
 
         print('\n\t\t\t\tAppending new row... ', end='', flush=True)
-        output_followup = new_row(followup_df, new_data.append(deleted), old_data, access_time)
+        new_data.append(deleted)
+        output_followup = new_row(followup_df, new_data, old_data, access_time)
         print('done!', end='\n', flush=True)
 
     return output_followup, failed_pair
@@ -286,12 +292,13 @@ print('\n\n')
 
 # Transfer scraped auctions to character follow-up dataframe
 save_counter = 0
-for i,auction in sbe.iterrows():
+for i, auction in sbe.iterrows():
     # Perform auto-save operation
     save_counter += 1
     if save_counter % save_step == 0:
         character_followup.to_pickle(temp_storage)
-        print(f"\n\nAUTOSAVE {save_counter:,}: 'character_followup' DataFrame saved to '{temp_storage}' temporary file.\n\n")
+        print(
+            f"\n\nAUTOSAVE {save_counter:,}: 'character_followup' DataFrame saved to '{temp_storage}' temporary file.\n\n")
 
     clock = datetime.datetime.now().strftime("%H:%M:%S")
     print(f'{clock} [{auction_count - i:,}] ', end='', flush=True)
@@ -300,7 +307,6 @@ for i,auction in sbe.iterrows():
 
     if failed:
         failed_updates.append(failed)
-
 
 # Get time at the end of the run
 end_date = datetime.datetime.now()
@@ -320,7 +326,7 @@ with open(failed_today, 'w') as fail_reg:
     fail_reg.write(f'Auctioned Characters follow-up report\n')
     fail_reg.write(f'Update finished on {print_date}\n')
     fail_reg.write(f'\nParsed auctions:      {auction_count:>8,}')
-    fail_reg.write(f'\nSuccessfully updated: {auction_count-failed_count:>8,}')
+    fail_reg.write(f'\nSuccessfully updated: {auction_count - failed_count:>8,}')
     fail_reg.write(f'\nFailed to update:     {failed_count:>8,}')
     fail_reg.write('\n\n\nList of characters & auction IDs that could not be updated:')
     fail_reg.write('\n\nAuction ID   Character Name')
