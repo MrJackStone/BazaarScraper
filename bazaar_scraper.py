@@ -5,6 +5,7 @@ from requests_html import HTML
 from requests_html import HTMLSession
 import pandas as pd
 import os
+import concurrent.futures
 import logging
 import pickle
 
@@ -110,7 +111,7 @@ def scrape_tibia_auctions():
 
         page_req.close()
 
-        if consecutive_expired > 50:
+        if consecutive_expired > 200:
             print(f'\nProcess interrupted on page {page_number}/{max_page}: older auctions already registered.')
             break
 
@@ -131,10 +132,26 @@ def get_page_data(page_html, page_number):
     page_df = pd.DataFrame(None)
     auction_tables = page_html.find(".Auction")
 
+    # # Batch collect all auctions in page
+    # with concurrent.futures.ThreadPoolExecutor() as executor:
+    #     nth_page_data = executor.map(lambda auction: get_auction_data(auction, page_number), auction_tables)
+    #
+    # for auction_df in nth_page_data:
+    #     page_df = page_df.append(auction_df)
+
     # Loop through each auction on the page
     for auction in auction_tables:
-        nth_auction_data = get_auction_data(auction, page_number)
-        page_df = page_df.append(nth_auction_data)
+        trying = True
+        first_error = True
+        while trying:
+            try:
+                nth_auction_data = get_auction_data(auction, page_number)
+                page_df = page_df.append(nth_auction_data)
+                trying = False
+            except:
+                if first_error:
+                    print('\n\nOperation failed! Trying again...\n')
+                    first_error = False
 
     return page_df
 
@@ -156,11 +173,6 @@ def get_auction_data(auction, page_number):
         new_status = summary_dict['Status']
         if new_status != old_status:
             auction_dataframe.at[matching_row[0], 'Status'] = new_status
-            #auction_dataframe.at[matching_row[0], 'Start'] = summary_dict['Start']
-            #auction_dataframe.at[matching_row[0], 'End'] = summary_dict['End']
-            #old_cd = auction_dataframe.iloc[matching_row[0]]['Creation Date']
-            #new_cd = datetime.datetime(old_cd.year, old_cd.month, old_cd.day, 0, 0)
-            #auction_dataframe.at[matching_row[0], 'Creation Date'] = new_cd
             print('status updated!', end='\n', flush=True)
             consecutive_expired = 0
         else:
@@ -209,7 +221,7 @@ def get_summary_data (auction, page_num):
     bid = int(data[5].replace(",", ""))
 
     auction_age = today - end
-    if auction_age.days > 8:
+    if auction_age.days > 10:
         consecutive_expired += 1
     else:
         consecutive_expired = 0
